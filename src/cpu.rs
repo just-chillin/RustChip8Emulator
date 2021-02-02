@@ -1,7 +1,7 @@
-use crate::isa::{Instruction, ISA};
 use rand::prelude::*;
 use std::fs::File;
 use std::io::Read;
+use crate::isa::Instruction;
 
 const MEM_SIZE: usize = 0xFFF;
 const PROG_START: usize = 0x200;
@@ -53,74 +53,74 @@ impl Program {
     }
 
     fn exec(&mut self, instruction: Instruction) {
-        match instruction.0 {
-            ISA::SYS { addr } => self.pc = addr,
-            ISA::CLS => {}
-            ISA::RET => self.pc = self.stack.pop().expect("The stack was empty!"),
-            ISA::JP { addr } => self.pc = addr,
-            ISA::CALL { addr } => {
+        match instruction {
+            Instruction::SYS { addr } => self.pc = addr,
+            Instruction::CLS => {}
+            Instruction::RET => self.pc = self.stack.pop().expect("The stack was empty!"),
+            Instruction::JP { addr } => self.pc = addr,
+            Instruction::CALL { addr } => {
                 self.stack.push(self.pc);
                 self.pc = addr
             }
-            ISA::SEI { vx, imm } => {
+            Instruction::SEI { vx, imm } => {
                 if self.v[vx] == imm as u8 {
                     self.pc += 2
                 }
             }
-            ISA::SNEI { vx, imm } => {
+            Instruction::SNEI { vx, imm } => {
                 if self.v[vx] != imm as u8 {
                     self.inc_pc()
                 }
             }
-            ISA::SE { vx, vy } => {
+            Instruction::SE { vx, vy } => {
                 if self.v[vx] == self.v[vy] {
                     self.inc_pc()
                 }
             }
-            ISA::LDI { vx, imm } => self.v[vx] = imm,
-            ISA::ADDI { vx, imm } => self.v[vx] += imm,
-            ISA::LD { vx, vy } => self.v[vx] = self.v[vy],
-            ISA::OR { vx, vy } => self.v[vx] |= self.v[vy],
-            ISA::AND { vx, vy } => self.v[vx] &= self.v[vy],
-            ISA::XOR { vx, vy } => self.v[vx] ^= self.v[vy],
-            ISA::ADD { vx, vy } => {
+            Instruction::LDI { vx, imm } => self.v[vx] = imm,
+            Instruction::ADDI { vx, imm } => self.v[vx] += imm,
+            Instruction::LD { vx, vy } => self.v[vx] = self.v[vy],
+            Instruction::OR { vx, vy } => self.v[vx] |= self.v[vy],
+            Instruction::AND { vx, vy } => self.v[vx] &= self.v[vy],
+            Instruction::XOR { vx, vy } => self.v[vx] ^= self.v[vy],
+            Instruction::ADD { vx, vy } => {
                 self.v[0xF] = u8::from(((self.v[vx] as u16) + (self.v[vy] as u16)) < 255);
                 self.v[vx] = self.v[vx].wrapping_add(self.v[vy])
             }
-            ISA::SUB { vx, vy } => {
+            Instruction::SUB { vx, vy } => {
                 self.v[0xF] = u8::from(self.v[vx] > self.v[vy]);
                 self.v[vx] = self.v[vx].wrapping_sub(self.v[vy])
             }
-            ISA::SHR { vx: _, vy: _ } => {
+            Instruction::SHR { vx: _, vy: _ } => {
                 unimplemented!()
             }
-            ISA::SUBN { vx, vy } => {
+            Instruction::SUBN { vx, vy } => {
                 self.v[0xF] = u8::from(self.v[vy] > self.v[vx]);
                 self.v[vx] = self.v[vy].wrapping_sub(self.v[vx])
             }
-            ISA::SHL { .. } => {
+            Instruction::SHL { .. } => {
                 unimplemented!()
             }
-            ISA::SNE { vx, vy } => {
+            Instruction::SNE { vx, vy } => {
                 if self.v[vx] != self.v[vy] {
                     self.pc += 2
                 }
             }
-            ISA::LDA { addr } => self.i = addr,
-            ISA::JPO { addr } => self.pc = addr + self.v[0] as usize,
-            ISA::RND { vx, imm } => self.v[vx] = self.rng.gen::<u8>() & imm,
-            ISA::DRW { .. } => {}
-            ISA::SKP { .. } => {}
-            ISA::SKNP { .. } => {}
-            ISA::LDDT { .. } => {}
-            ISA::LDKEY { .. } => {}
-            ISA::SETDT { .. } => {}
-            ISA::LDST { .. } => {}
-            ISA::ADDIR { .. } => {}
-            ISA::LDSPR { .. } => {}
-            ISA::LDBCD { .. } => {}
-            ISA::STR { .. } => {}
-            ISA::LDR { .. } => {}
+            Instruction::LDA { addr } => self.i = addr,
+            Instruction::JPO { addr } => self.pc = addr + self.v[0] as usize,
+            Instruction::RND { vx, imm } => self.v[vx] = self.rng.gen::<u8>() & imm,
+            Instruction::DRW { .. } => {}
+            Instruction::SKP { .. } => {}
+            Instruction::SKNP { .. } => {}
+            Instruction::LDDT { .. } => {}
+            Instruction::LDKEY { .. } => {}
+            Instruction::SETDT { .. } => {}
+            Instruction::LDST { .. } => {}
+            Instruction::ADDIR { .. } => {}
+            Instruction::LDSPR { .. } => {}
+            Instruction::LDBCD { .. } => {}
+            Instruction::STR { .. } => {}
+            Instruction::LDR { .. } => {}
             _ => {}
         };
         self.inc_pc()

@@ -5,8 +5,8 @@ type Immediate = u8;
 type Register = usize;
 type Address = usize;
 
-#[derive(Eq, PartialEq)]
-pub enum ISA {
+#[derive(Eq, PartialEq, Debug)]
+pub enum Instruction {
     SYS {
         addr: Address,
     },
@@ -138,66 +138,65 @@ impl fmt::Display for InvalidInstructionError {
 }
 impl Error for InvalidInstructionError {}
 
-pub struct Instruction(pub ISA);
 impl Instruction {
     pub fn try_from([b1, b2]: [u8; 2]) -> Instruction {
         let raw = (b1 as u16) << 8 | (b2 as u16);
         if raw == 0x00E0 {
-            return Instruction(ISA::CLS);
+            return Instruction::CLS;
         } else if raw == 0x00EE {
-            return Instruction(ISA::RET);
+            return Instruction::RET;
         }
         let opcode = b1 & 0xF0;
         let (addr, vx, vy, imm) = (addr(raw), vx(b1), vy(b2), imm(b1));
-        Instruction(match opcode {
-            0x0 => ISA::SYS { addr },
-            0x1 => ISA::JP { addr },
-            0x2 => ISA::CALL { addr },
-            0x3 => ISA::SEI { vx, imm },
-            0x4 => ISA::SNEI { vx, imm },
-            0x5 => ISA::SE { vx, vy },
-            0x6 => ISA::LDI { vx, imm },
-            0x7 => ISA::ADDI { vx, imm },
+        match opcode {
+            0x0 => Instruction::SYS { addr },
+            0x1 => Instruction::JP { addr },
+            0x2 => Instruction::CALL { addr },
+            0x3 => Instruction::SEI { vx, imm },
+            0x4 => Instruction::SNEI { vx, imm },
+            0x5 => Instruction::SE { vx, vy },
+            0x6 => Instruction::LDI { vx, imm },
+            0x7 => Instruction::ADDI { vx, imm },
             0x8 => match variant(b2) {
-                0x0 => ISA::LD { vx, vy },
-                0x1 => ISA::OR { vx, vy },
-                0x2 => ISA::AND { vx, vy },
-                0x3 => ISA::XOR { vx, vy },
-                0x4 => ISA::ADD { vx, vy },
-                0x5 => ISA::SUB { vx, vy },
-                0x6 => ISA::SHR { vx, vy },
-                0x7 => ISA::SUBN { vx, vy },
-                0xE => ISA::SHL { vx, vy },
-                _ => ISA::INVALID,
+                0x0 => Instruction::LD { vx, vy },
+                0x1 => Instruction::OR { vx, vy },
+                0x2 => Instruction::AND { vx, vy },
+                0x3 => Instruction::XOR { vx, vy },
+                0x4 => Instruction::ADD { vx, vy },
+                0x5 => Instruction::SUB { vx, vy },
+                0x6 => Instruction::SHR { vx, vy },
+                0x7 => Instruction::SUBN { vx, vy },
+                0xE => Instruction::SHL { vx, vy },
+                _ => Instruction::INVALID,
             },
-            0x9 => ISA::SNE { vx, vy },
-            0xA => ISA::LDA { addr },
-            0xB => ISA::JPO { addr },
-            0xC => ISA::RND { vx, imm },
-            0xD => ISA::DRW {
+            0x9 => Instruction::SNE { vx, vy },
+            0xA => Instruction::LDA { addr },
+            0xB => Instruction::JPO { addr },
+            0xC => Instruction::RND { vx, imm },
+            0xD => Instruction::DRW {
                 vx,
                 vy,
                 size: u8::from_be(b2) as usize,
             },
             0xE => match b2 {
-                0x9E => ISA::SKP { vx },
-                0xA1 => ISA::SKNP { vx },
-                _ => ISA::INVALID,
+                0x9E => Instruction::SKP { vx },
+                0xA1 => Instruction::SKNP { vx },
+                _ => Instruction::INVALID,
             },
             0xF => match b2 {
-                0x07 => ISA::LDDT { vx },
-                0x0A => ISA::LDKEY { vx },
-                0x15 => ISA::SETDT { vx },
-                0x18 => ISA::LDST { vx },
-                0x1E => ISA::ADDIR { vx },
-                0x29 => ISA::LDSPR { vx },
-                0x33 => ISA::LDBCD { vx },
-                0x55 => ISA::STR { vx },
-                0x65 => ISA::LDR { vx },
-                _ => ISA::INVALID,
+                0x07 => Instruction::LDDT { vx },
+                0x0A => Instruction::LDKEY { vx },
+                0x15 => Instruction::SETDT { vx },
+                0x18 => Instruction::LDST { vx },
+                0x1E => Instruction::ADDIR { vx },
+                0x29 => Instruction::LDSPR { vx },
+                0x33 => Instruction::LDBCD { vx },
+                0x55 => Instruction::STR { vx },
+                0x65 => Instruction::LDR { vx },
+                _ => Instruction::INVALID,
             },
-            _ => ISA::INVALID,
-        })
+            _ => Instruction::INVALID,
+        }
     }
 }
 
