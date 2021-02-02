@@ -1,12 +1,10 @@
-mod cpu;
-mod isa;
-
-use crate::cpu::Program;
 use std::env;
 use std::fs::File;
-use std::io::prelude::*;
-use std::io::{BufReader, Bytes};
-use std::path::Path;
+
+use crate::cpu::Program;
+
+mod cpu;
+mod isa;
 
 fn main() {
     let file = {
