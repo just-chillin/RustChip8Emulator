@@ -5,41 +5,125 @@ type Register = usize;
 type Address = usize;
 
 pub enum ISA {
-    SYS { addr: Address },
+    SYS {
+        addr: Address,
+    },
     CLS,
     RET,
-    JP { addr: Address },
-    CALL { addr: Address },
-    SEI { vx: Register, imm: Immediate },
-    SNEI { vx: Register, imm: Immediate },
-    SE { vx: Register, vy: Register },
-    LDI { vx: Register, imm: Immediate },
-    ADDI { vx: Register, imm: Immediate },
-    LD { vx: Register, vy: Register },
-    OR { vx: Register, vy: Register },
-    AND { vx: Register, vy: Register },
-    XOR { vx: Register, vy: Register },
-    ADD { vx: Register, vy: Register },
-    SUB { vx: Register, vy: Register },
-    SHR { vx: Register, vy: Register },
-    SUBN { vx: Register, vy: Register },
-    SHL { vx: Register, vy: Register },
-    SNE { vx: Register, vy: Register },
-    LDA { addr: Address },
-    JPO { addr: Address },
-    RND { vx: Register, imm: Immediate },
-    DRW { vx: Register, vy: Register, size: usize },
-    SKP { vx: Register },
-    SKNP { vx: Register },
-    LDDT { vx: Register },
-    LDKEY { vx: Register },
-    SETDT { vx: Register },
-    LDST { vx: Register },
-    ADDIR { vx: Register },
-    LDSPR { vx: Register },
-    LDBCD { vx: Register },
-    STR { vx: Register },
-    LDR { vx: Register },
+    JP {
+        addr: Address,
+    },
+    CALL {
+        addr: Address,
+    },
+    SEI {
+        vx: Register,
+        imm: Immediate,
+    },
+    SNEI {
+        vx: Register,
+        imm: Immediate,
+    },
+    SE {
+        vx: Register,
+        vy: Register,
+    },
+    LDI {
+        vx: Register,
+        imm: Immediate,
+    },
+    ADDI {
+        vx: Register,
+        imm: Immediate,
+    },
+    LD {
+        vx: Register,
+        vy: Register,
+    },
+    OR {
+        vx: Register,
+        vy: Register,
+    },
+    AND {
+        vx: Register,
+        vy: Register,
+    },
+    XOR {
+        vx: Register,
+        vy: Register,
+    },
+    ADD {
+        vx: Register,
+        vy: Register,
+    },
+    SUB {
+        vx: Register,
+        vy: Register,
+    },
+    SHR {
+        vx: Register,
+        vy: Register,
+    },
+    SUBN {
+        vx: Register,
+        vy: Register,
+    },
+    SHL {
+        vx: Register,
+        vy: Register,
+    },
+    SNE {
+        vx: Register,
+        vy: Register,
+    },
+    LDA {
+        addr: Address,
+    },
+    JPO {
+        addr: Address,
+    },
+    RND {
+        vx: Register,
+        imm: Immediate,
+    },
+    DRW {
+        vx: Register,
+        vy: Register,
+        size: usize,
+    },
+    SKP {
+        vx: Register,
+    },
+    SKNP {
+        vx: Register,
+    },
+    LDDT {
+        vx: Register,
+    },
+    LDKEY {
+        vx: Register,
+    },
+    SETDT {
+        vx: Register,
+    },
+    LDST {
+        vx: Register,
+    },
+    ADDIR {
+        vx: Register,
+    },
+    LDSPR {
+        vx: Register,
+    },
+    LDBCD {
+        vx: Register,
+    },
+    STR {
+        vx: Register,
+    },
+    LDR {
+        vx: Register,
+    },
 }
 
 pub struct Instruction(pub ISA);
@@ -54,12 +138,7 @@ impl Instruction {
         }
 
         let opcode = high & 0x0F;
-        let (addr, vx, vy, imm) = (
-            addr(raw),
-            vx(high),
-            vy(low),
-            imm(high),
-        );
+        let (addr, vx, vy, imm) = (addr(raw), vx(high), vy(low), imm(high));
         return Instruction(match opcode {
             0x0 => ISA::SYS { addr },
             0x1 => ISA::JP { addr },
@@ -85,7 +164,11 @@ impl Instruction {
             0xA => ISA::LDA { addr },
             0xB => ISA::JPO { addr },
             0xC => ISA::RND { vx, imm },
-            0xD => ISA::DRW { vx, vy, size: u8::from_be(low) as usize },
+            0xD => ISA::DRW {
+                vx,
+                vy,
+                size: u8::from_be(low) as usize,
+            },
             0xE => match low {
                 0x9E => ISA::SKP { vx },
                 0xA1 => ISA::SKNP { vx },
@@ -101,11 +184,11 @@ impl Instruction {
                 0x33 => ISA::LDBCD { vx },
                 0x55 => ISA::STR { vx },
                 0x65 => ISA::LDR { vx },
-                _ => panic!("pls help!")
-            }
+                _ => panic!("pls help!"),
+            },
 
-            _ => panic!("help pls")
-        })
+            _ => panic!("help pls"),
+        });
     }
 }
 
@@ -123,8 +206,8 @@ const fn vy(low: u8) -> usize {
     u8::from_be(y) as usize
 }
 
-const fn imm(low: u8) -> i8 {
-    i8::from_be(low as i8)
+const fn imm(low: u8) -> u8 {
+    u8::from_be(low)
 }
 const fn addr(raw: u16) -> usize {
     let addr = (raw & 0xF000) << 4;

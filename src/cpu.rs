@@ -28,7 +28,7 @@ impl Memory {
 }
 
 pub struct Program {
-    v: [u8; 0xF],
+    v: [u8; 16],
     dt: u8,
     st: u8,
     pc: u16,
@@ -91,26 +91,26 @@ impl Program {
                     self.pc += 2;
                 }
             }
-            ISA::LDI { vx, imm } => self.v[vx] = imm as i8,
+            ISA::LDI { vx, imm } => self.v[vx] = imm,
             ISA::ADDI { vx, imm } => self.v[vx] += imm,
             ISA::LD { vx, vy } => self.v[vx] = self.v[vy],
             ISA::OR { vx, vy } => self.v[vx] |= self.v[vy],
             ISA::AND { vx, vy } => self.v[vx] &= self.v[vy],
             ISA::XOR { vx, vy } => self.v[vx] ^= self.v[vy],
             ISA::ADD { vx, vy } => {
-                self.v[vx] += self.v[vy];
-                self.v[0xF] = i8::from(self.v[vx] as u8 > 255);
+                self.v[0xF] = u8::from(((self.v[vx] as u16) + (self.v[vy] as u16)) < 255);
+                self.v[vx] = self.v[vx].wrapping_add(self.v[vy]);
             }
             ISA::SUB { vx, vy } => {
-                self.v[0xF] = i8::from(self.v[vx] > self.v[vy]);
-                self.v[vx] -= self.v[vy];
+                self.v[0xF] = u8::from(self.v[vx] > self.v[vy]);
+                self.v[vx] = self.v[vx].wrapping_sub(self.v[vy]);
             }
             ISA::SHR { vx, vy } => {
                 unimplemented!()
             }
             ISA::SUBN { vx, vy } => {
-                self.v[0xF] = i8::from(self.v[vx] < self.v[vy]);
-                self.v[vx] = self.v[vy] - self.v[vx];
+                self.v[0xF] = u8::from(self.v[vy] > self.v[vx]);
+                self.v[vx] = self.v[vy].wrapping_sub(self.v[vx]);
             }
             ISA::SHL { .. } => {
                 unimplemented!()

@@ -1,15 +1,15 @@
-mod isa;
 mod cpu;
+mod isa;
 
+use crate::cpu::Program;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::{BufReader, Bytes};
 use std::path::Path;
-use std::io::{Bytes, BufReader};
-use crate::cpu::Program;
 
 fn main() {
-    let mut file = {
+    let file = {
         let args = env::args().nth(1);
         let filename = args.expect("Usage: chip8 filename");
         File::open(filename).expect("Could not find file.")
