@@ -1,12 +1,7 @@
-use rand::{thread_rng, Rng};
-use std::fmt::Error;
+use crate::isa::{Instruction, ISA};
+use rand::prelude::*;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
-
-use crate::isa::{Instruction, ISA};
-use rand::rngs::ThreadRng;
-use std::borrow::{Borrow, BorrowMut};
 
 const MEM_SIZE: usize = 0xFFF;
 const PROG_START: usize = 0x200;
@@ -15,15 +10,7 @@ pub struct Memory([u8; MEM_SIZE]);
 
 impl Memory {
     pub fn get_instruction(&self, addr: usize) -> Instruction {
-        Instruction::from([self.0[addr], self.0[addr + 1]])
-    }
-    pub fn get_u16(&self, addr: usize) -> u16 {
-        u16::from_be_bytes([self.0[addr], self.0[addr + 1]])
-    }
-    pub fn set_u16(&mut self, addr: usize, val: u16) {
-        for (offset, byte) in val.to_be_bytes().iter().enumerate() {
-            self.0[addr + offset] = *byte;
-        }
+        Instruction::try_from([self.0[addr], self.0[addr + 1]])
     }
 }
 
@@ -31,10 +18,10 @@ pub struct Program {
     v: [u8; 16],
     dt: u8,
     st: u8,
-    pc: u16,
-    stk: usize,
-    i: u16,
+    pc: usize,
+    i: usize,
     rng: ThreadRng,
+    stack: Vec<usize>,
     mem: Memory,
 }
 
@@ -44,8 +31,8 @@ impl Program {
             v: Default::default(),
             dt: 0,
             st: 0,
-            pc: PROG_START as u16,
-            stk: 0x0,
+            pc: PROG_START,
+            stack: vec![],
             i: 0,
             rng: rand::thread_rng(),
             mem: Memory([0; MEM_SIZE]),
@@ -61,34 +48,33 @@ impl Program {
         }
     }
 
+    fn inc_pc(&mut self) {
+        self.pc += 2
+    }
+
     fn exec(&mut self, instruction: Instruction) {
-        let inc: bool = true;
         match instruction.0 {
-            ISA::SYS { addr } => self.pc = addr as u16,
+            ISA::SYS { addr } => self.pc = addr,
             ISA::CLS => {}
-            ISA::RET => {
-                self.stk -= 2;
-                self.pc = self.mem.get_u16(self.stk);
-            }
-            ISA::JP { addr } => self.pc = addr as u16,
+            ISA::RET => self.pc = self.stack.pop().expect("The stack was empty!"),
+            ISA::JP { addr } => self.pc = addr,
             ISA::CALL { addr } => {
-                self.stk += 2;
-                self.mem.set_u16(self.stk, self.pc);
-                self.pc = addr as u16;
+                self.stack.push(self.pc);
+                self.pc = addr
             }
             ISA::SEI { vx, imm } => {
                 if self.v[vx] == imm as u8 {
-                    self.pc += 2;
+                    self.pc += 2
                 }
             }
             ISA::SNEI { vx, imm } => {
                 if self.v[vx] != imm as u8 {
-                    self.pc += 2;
+                    self.inc_pc()
                 }
             }
             ISA::SE { vx, vy } => {
                 if self.v[vx] == self.v[vy] {
-                    self.pc += 2;
+                    self.inc_pc()
                 }
             }
             ISA::LDI { vx, imm } => self.v[vx] = imm,
@@ -99,34 +85,30 @@ impl Program {
             ISA::XOR { vx, vy } => self.v[vx] ^= self.v[vy],
             ISA::ADD { vx, vy } => {
                 self.v[0xF] = u8::from(((self.v[vx] as u16) + (self.v[vy] as u16)) < 255);
-                self.v[vx] = self.v[vx].wrapping_add(self.v[vy]);
+                self.v[vx] = self.v[vx].wrapping_add(self.v[vy])
             }
             ISA::SUB { vx, vy } => {
                 self.v[0xF] = u8::from(self.v[vx] > self.v[vy]);
-                self.v[vx] = self.v[vx].wrapping_sub(self.v[vy]);
+                self.v[vx] = self.v[vx].wrapping_sub(self.v[vy])
             }
-            ISA::SHR { vx, vy } => {
+            ISA::SHR { vx: _, vy: _ } => {
                 unimplemented!()
             }
             ISA::SUBN { vx, vy } => {
                 self.v[0xF] = u8::from(self.v[vy] > self.v[vx]);
-                self.v[vx] = self.v[vy].wrapping_sub(self.v[vx]);
+                self.v[vx] = self.v[vy].wrapping_sub(self.v[vx])
             }
             ISA::SHL { .. } => {
                 unimplemented!()
             }
             ISA::SNE { vx, vy } => {
                 if self.v[vx] != self.v[vy] {
-                    self.pc += 2;
+                    self.pc += 2
                 }
             }
-            ISA::LDA { addr } => {
-                self.i = addr as u16;
-            }
-            ISA::JPO { addr } => self.pc = (addr + self.v[0] as usize) as u16,
-            ISA::RND { vx, imm } => {
-                self.v[vx] = self.rng.borrow_mut().gen_range((0..255)) & imm;
-            }
+            ISA::LDA { addr } => self.i = addr,
+            ISA::JPO { addr } => self.pc = addr + self.v[0] as usize,
+            ISA::RND { vx, imm } => self.v[vx] = self.rng.gen::<u8>() & imm,
             ISA::DRW { .. } => {}
             ISA::SKP { .. } => {}
             ISA::SKNP { .. } => {}
@@ -139,6 +121,8 @@ impl Program {
             ISA::LDBCD { .. } => {}
             ISA::STR { .. } => {}
             ISA::LDR { .. } => {}
+            _ => {}
         };
+        self.inc_pc()
     }
 }
