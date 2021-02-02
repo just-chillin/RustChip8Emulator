@@ -1,8 +1,8 @@
+use rand::{thread_rng, Rng};
 use std::fmt::Error;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use rand::{thread_rng, Rng};
 
 use crate::isa::{Instruction, ISA};
 use rand::rngs::ThreadRng;
@@ -28,7 +28,7 @@ impl Memory {
 }
 
 pub struct Program {
-    v: [i8; 0xF],
+    v: [u8; 0xF],
     dt: u8,
     st: u8,
     pc: u16,
@@ -54,7 +54,6 @@ impl Program {
         program
     }
 
-
     pub fn run_program(&mut self) {
         loop {
             let inst = self.mem.get_instruction(self.pc as usize);
@@ -65,25 +64,25 @@ impl Program {
     fn exec(&mut self, instruction: Instruction) {
         let inc: bool = true;
         match instruction.0 {
-            ISA::SYS { addr } => { self.pc = addr as u16 },
+            ISA::SYS { addr } => self.pc = addr as u16,
             ISA::CLS => {}
             ISA::RET => {
                 self.stk -= 2;
                 self.pc = self.mem.get_u16(self.stk);
             }
-            ISA::JP { addr } => { self.pc = addr as u16 },
+            ISA::JP { addr } => self.pc = addr as u16,
             ISA::CALL { addr } => {
                 self.stk += 2;
                 self.mem.set_u16(self.stk, self.pc);
                 self.pc = addr as u16;
             }
             ISA::SEI { vx, imm } => {
-                if self.v[vx] == imm as i8 {
+                if self.v[vx] == imm as u8 {
                     self.pc += 2;
                 }
             }
             ISA::SNEI { vx, imm } => {
-                if self.v[vx] != imm as i8 {
+                if self.v[vx] != imm as u8 {
                     self.pc += 2;
                 }
             }
@@ -92,12 +91,12 @@ impl Program {
                     self.pc += 2;
                 }
             }
-            ISA::LDI { vx, imm } => { self.v[vx] = imm as i8 }
-            ISA::ADDI { vx, imm } => { self.v[vx] += imm }
-            ISA::LD { vx, vy } => { self.v[vx] = self.v[vy] }
-            ISA::OR { vx, vy } => { self.v[vx] |= self.v[vy] }
-            ISA::AND { vx, vy } => { self.v[vx] &= self.v[vy] }
-            ISA::XOR { vx, vy } => { self.v[vx] ^= self.v[vy] }
+            ISA::LDI { vx, imm } => self.v[vx] = imm as i8,
+            ISA::ADDI { vx, imm } => self.v[vx] += imm,
+            ISA::LD { vx, vy } => self.v[vx] = self.v[vy],
+            ISA::OR { vx, vy } => self.v[vx] |= self.v[vy],
+            ISA::AND { vx, vy } => self.v[vx] &= self.v[vy],
+            ISA::XOR { vx, vy } => self.v[vx] ^= self.v[vy],
             ISA::ADD { vx, vy } => {
                 self.v[vx] += self.v[vy];
                 self.v[0xF] = i8::from(self.v[vx] as u8 > 255);
@@ -106,21 +105,27 @@ impl Program {
                 self.v[0xF] = i8::from(self.v[vx] > self.v[vy]);
                 self.v[vx] -= self.v[vy];
             }
-            ISA::SHR { vx, vy } => { unimplemented!() }
+            ISA::SHR { vx, vy } => {
+                unimplemented!()
+            }
             ISA::SUBN { vx, vy } => {
                 self.v[0xF] = i8::from(self.v[vx] < self.v[vy]);
                 self.v[vx] = self.v[vy] - self.v[vx];
             }
-            ISA::SHL { .. } => { unimplemented!() }
+            ISA::SHL { .. } => {
+                unimplemented!()
+            }
             ISA::SNE { vx, vy } => {
                 if self.v[vx] != self.v[vy] {
                     self.pc += 2;
                 }
             }
-            ISA::LDA { addr } => { self.i = addr as u16; }
-            ISA::JPO { addr } => { self.pc = (addr + self.v[0] as usize) as u16 }
+            ISA::LDA { addr } => {
+                self.i = addr as u16;
+            }
+            ISA::JPO { addr } => self.pc = (addr + self.v[0] as usize) as u16,
             ISA::RND { vx, imm } => {
-                self.v[vx] = self.rng.borrow_mut().gen_range((..255)) & imm;
+                self.v[vx] = self.rng.borrow_mut().gen_range((0..255)) & imm;
             }
             ISA::DRW { .. } => {}
             ISA::SKP { .. } => {}
