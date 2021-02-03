@@ -1,26 +1,19 @@
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::Read;
-
+use std::iter;
 use rand::prelude::*;
 
 use crate::isa::Instruction;
 use std::{fmt, panic};
 
-const MEM_SIZE: usize = 0xFFF;
 const PROG_START: usize = 0x200;
 
-pub struct Memory([u8; MEM_SIZE]);
+pub struct Memory(Vec<u8>);
 
 impl Memory {
     pub fn get_instruction(&self, addr: usize) -> Result<Instruction, String> {
         Instruction::try_from([self.0[addr], self.0[addr + 1]])
-    }
-}
-
-impl Debug for Memory {
-    fn fmt(&self, f: &mut Formatter<'_>)  -> fmt::Result {
-        write!(f, "Memory[..]")
     }
 }
 
@@ -37,18 +30,23 @@ pub struct Program {
 impl Debug for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for (i, val) in self.v.iter().enumerate() {
-            writeln!(f, "V{:X}: {}", i, val);
-        };
-        writeln!(f, "dt = {}", self.dt);
-        writeln!(f, "st = {}", self.st);
-        writeln!(f, "pc = {}", self.pc);
-        writeln!(f, "I = {}", self.i);
+            writeln!(f, "V{:X}: {}", i, val).unwrap();
+        }
+        writeln!(f, "dt = {}", self.dt).unwrap();
+        writeln!(f, "st = {}", self.st).unwrap();
+        writeln!(f, "pc = {}", self.pc).unwrap();
+        writeln!(f, "I = {}", self.i).unwrap();
         writeln!(f, "stack: {:#?}", self.stack)
     }
 }
 impl Program {
     pub fn from(mut file: File) -> Self {
-        let mut program = Self {
+        let mem = {
+            let mut preamble = vec![0u8; PROG_START];
+            let _ = file.read_to_end(&mut preamble).unwrap();
+            Memory(preamble)
+        };
+        Self {
             v: Default::default(),
             dt: 0,
             st: 0,
@@ -56,10 +54,8 @@ impl Program {
             stack: vec![],
             i: 0,
             rng: rand::thread_rng(),
-            mem: Memory([0; MEM_SIZE]),
-        };
-        file.read(&mut program.mem.0[PROG_START..]).unwrap();
-        program
+            mem,
+        }
     }
 
     pub fn run_program(&mut self) {
