@@ -44,6 +44,7 @@ impl Program {
         let mem = {
             let mut preamble = vec![0u8; PROG_START];
             let _ = file.read_to_end(&mut preamble).unwrap();
+            preamble.append(&mut vec![0u8; 0xFFF - preamble.len()]);
             Memory(preamble)
         };
         Self {
