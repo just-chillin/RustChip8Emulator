@@ -1,13 +1,50 @@
+use rand::prelude::*;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::Read;
 use std::iter;
-use rand::prelude::*;
 
 use crate::isa::Instruction;
+use std::borrow::{Borrow, BorrowMut};
 use std::{fmt, panic};
 
 const PROG_START: usize = 0x200;
+// const BUILT_IN_SPRITES: [[u8; 5]; 16] = [
+//     [0xf0, 0x90, 0x90, 0x90, 0xf0], //0
+//     [0x20, 0x60, 0x20, 0x20, 0x70], //1
+//     [0xf0, 0x10, 0xf0, 0x80, 0xf0], //2
+//     [0xf0, 0x10, 0xf0, 0x10, 0xf0], //3
+//     [0x90, 0x90, 0xf0, 0x10, 0x10], //4
+//     [0xf0, 0x80, 0xf0, 0x10, 0xf0], //5
+//     [0xf0, 0x80, 0xf0, 0x90, 0xf0], //6
+//     [0xf0, 0x10, 0x20, 0x40, 0x40], //7
+//     [0xf0, 0x90, 0xf0, 0x90, 0xf0], //8
+//     [0xf0, 0x90, 0xf0, 0x10, 0xf0], //9
+//     [0xf0, 0x90, 0xf0, 0x90, 0x90], //A
+//     [0xe0, 0x90, 0xe0, 0x90, 0xe0], //B
+//     [0xf0, 0x80, 0x80, 0x80, 0xf0], //c
+//     [0xe0, 0x90, 0x90, 0x90, 0xe0], //d
+//     [0xf0, 0x80, 0xf0, 0x80, 0xf0], //e
+//     [0xf0, 0x80, 0xf0, 0x80, 0x80], //f
+// ];
+const BUILT_IN_SPRITES: [u8; 80] = [
+    0xf0, 0x90, 0x90, 0x90, 0xf0, //0
+    0x20, 0x60, 0x20, 0x20, 0x70, //1
+    0xf0, 0x10, 0xf0, 0x80, 0xf0, //2
+    0xf0, 0x10, 0xf0, 0x10, 0xf0, //3
+    0x90, 0x90, 0xf0, 0x10, 0x10, //4
+    0xf0, 0x80, 0xf0, 0x10, 0xf0, //5
+    0xf0, 0x80, 0xf0, 0x90, 0xf0, //6
+    0xf0, 0x10, 0x20, 0x40, 0x40, //7
+    0xf0, 0x90, 0xf0, 0x90, 0xf0, //8
+    0xf0, 0x90, 0xf0, 0x10, 0xf0, //9
+    0xf0, 0x90, 0xf0, 0x90, 0x90, //A
+    0xe0, 0x90, 0xe0, 0x90, 0xe0, //B
+    0xf0, 0x80, 0x80, 0x80, 0xf0, //c
+    0xe0, 0x90, 0x90, 0x90, 0xe0, //d
+    0xf0, 0x80, 0xf0, 0x80, 0xf0, //e
+    0xf0, 0x80, 0xf0, 0x80, 0x80, //f
+];
 
 pub struct Memory(Vec<u8>);
 
@@ -18,11 +55,12 @@ impl Memory {
 }
 
 pub struct Program {
+    framebuffer: [[bool; 64]; 32],
     v: [u8; 16],
     dt: u8,
     st: u8,
     pc: usize,
-    i: usize,
+    i: u16,
     rng: ThreadRng,
     stack: Vec<usize>,
     mem: Memory,
@@ -40,14 +78,17 @@ impl Debug for Program {
     }
 }
 impl Program {
-    pub fn from(mut file: File) -> Self {
+    pub fn from(mut raw: Vec<u8>) -> Self {
         let mem = {
             let mut preamble = vec![0u8; PROG_START];
-            let _ = file.read_to_end(&mut preamble).unwrap();
-            preamble.append(&mut vec![0u8; 0xFFF - preamble.len()]);
+            preamble.append(&mut raw);
+            for (i, byte) in BUILT_IN_SPRITES.iter().enumerate() {
+                preamble[i] = *byte;
+            }
             Memory(preamble)
         };
         Self {
+            framebuffer: [[false; 64]; 32],
             v: Default::default(),
             dt: 0,
             st: 0,
@@ -59,7 +100,7 @@ impl Program {
         }
     }
 
-    pub fn run_program(&mut self) {
+    pub fn run(&mut self) {
         loop {
             let inst = self.mem.get_instruction(self.pc as usize);
             if inst.is_err() {
@@ -114,33 +155,76 @@ impl Program {
                 self.v[0xF] = u8::from(self.v[vx.0] > self.v[vy.0]);
                 self.v[vx.0] = self.v[vx.0].wrapping_sub(self.v[vy.0])
             }
-            Instruction::SHR { .. } => todo!(),
+            Instruction::SHR { vx, .. } => {
+                self.v[0xf] = u8::from(self.v[vx.0] % 2 != 0);
+                self.v[vx.0] /= 2;
+            }
             Instruction::SUBN { vx, vy } => {
                 self.v[0xF] = u8::from(self.v[vy.0] > self.v[vx.0]);
                 self.v[vx.0] = self.v[vy.0].wrapping_sub(self.v[vx.0])
             }
-            Instruction::SHL { .. } => todo!(),
+            Instruction::SHL { vx, .. } => {
+                self.v[0xf] = u8::from(self.v[vx.0] >= 128); //if most significant bit is set
+                self.v[vx.0] *= 2;
+            }
             Instruction::SNE { vx, vy } => {
                 if self.v[vx.0] != self.v[vy.0] {
                     self.pc += 2
                 }
             }
-            Instruction::LDA { addr } => self.i = addr.0,
+            Instruction::LDA { addr } => self.i = addr.0 as u16,
             Instruction::JPO { addr } => self.pc = addr.0 + self.v[0] as usize,
             Instruction::RND { vx, imm } => self.v[vx.0] = self.rng.gen::<u8>() & imm,
-            Instruction::DRW { .. } => todo!(),
-            Instruction::SKP { .. } => todo!(),
-            Instruction::SKNP { .. } => todo!(),
-            Instruction::LDDT { .. } => todo!(),
-            Instruction::LDKEY { .. } => todo!(),
-            Instruction::SETDT { .. } => todo!(),
-            Instruction::LDST { .. } => todo!(),
-            Instruction::ADDIR { .. } => todo!(),
-            Instruction::LDSPR { .. } => todo!(),
+            Instruction::DRW { vx, vy, size } => self.draw_sprite(
+                self.v[vx.0 as usize] as usize,
+                self.v[vy.0 as usize] as usize,
+                self.i as usize,
+                size,
+            ),
+            Instruction::SKP { .. } => {
+                let is_pressed = true;
+                if is_pressed {
+                    self.pc += 2;
+                }
+            }
+            Instruction::SKNP { .. } => {
+                let is_pressed = true;
+                if !is_pressed {
+                    self.pc += 2;
+                }
+            }
+            Instruction::LDDT { vx } => self.v[vx.0] = self.dt,
+            Instruction::LDKEY { .. } => {
+                println!("Waiting for key press!");
+                loop {}
+            }
+            Instruction::SETDT { vx } => self.dt = self.v[vx.0],
+            Instruction::LDST { vx } => self.st = self.v[vx.0],
+            Instruction::ADDIR { vx } => self.i += self.v[vx.0] as u16,
+            Instruction::LDSPR { vx } => self.i = 5 * self.v[vx.0] as u16,
             Instruction::LDBCD { .. } => todo!(),
-            Instruction::STR { .. } => todo!(),
-            Instruction::LDR { .. } => todo!(),
+            Instruction::STR { vx } => {
+                for (regvec, regval) in self.v[0..vx.0 + 1].iter().enumerate() {
+                    self.mem.0[self.i as usize + regvec] = *regval;
+                }
+            }
+            Instruction::LDR { vx } => {
+                for (regvec, regval) in self.v[0..vx.0 + 1].iter_mut().enumerate() {
+                    *regval = self.mem.0[self.i as usize + regvec];
+                }
+            }
         };
         self.inc_pc()
+    }
+    fn draw_sprite(&mut self, x: usize, y: usize, sprite_addr: usize, sprite_size: usize) {
+        let sprite = &self.mem.0[sprite_addr..sprite_addr + sprite_size];
+        let mask: u8 = 0b1000_0000;
+        for (y_offset, byte) in sprite.iter().enumerate() {
+            let y = y + y_offset;
+            for x_offset in 0..8 {
+                let x = x + x_offset;
+                self.framebuffer[x][y] ^= (byte & (mask >> x_offset)) != 0;
+            }
+        }
     }
 }
