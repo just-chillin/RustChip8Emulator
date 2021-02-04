@@ -1,6 +1,25 @@
+use std::fmt::{Debug, Formatter};
+use std::fmt;
+
 type Immediate = u8;
-type Register = usize;
-type Address = usize;
+
+#[derive(Eq, PartialEq)]
+pub struct Register(pub usize);
+
+#[derive(Eq, PartialEq)]
+pub struct Address(pub usize);
+
+impl Debug for Register {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "v{:x}", self.0)
+    }
+}
+
+impl Debug for Address {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum Instruction {
@@ -79,7 +98,7 @@ impl Instruction {
             0xD => Instruction::DRW {
                 vx,
                 vy,
-                size: u8::from_be(b2) as usize,
+                size: u8::from_be(0x0F & b2) as usize,
             },
             0xE => match b2 {
                 0x9E => Instruction::SKP { vx },
@@ -104,20 +123,23 @@ impl Instruction {
 }
 
 const fn variant(b2: u8) -> u8 {
-    u8::from_be((b2 & 0x0F) << 4)
+    u8::from_be(0x0F & b2)
 }
-const fn vx(b1: u8) -> usize {
-    (u8::from_be(b1 & 0x0F) - 1) as usize
+
+const fn vx(b1: u8) -> Register {
+    Register(u8::from_be(0x0F & b1) as usize)
 }
-const fn vy(b2: u8) -> usize {
-    u8::from_be(b2 & 0xF0) as usize
+
+const fn vy(b2: u8) -> Register {
+    Register(u8::from_be((0xF0 & b2) >> 4) as usize)
 }
-const fn imm(b2: u8) -> u8 {
+
+const fn imm(b2: u8) -> Immediate {
     u8::from_be(b2)
 }
 
-const fn addr(raw: u16) -> usize {
-    u16::from_be((raw & 0xF)) as usize
+const fn addr(raw: u16) -> Address {
+    Address(0x0FFF & raw as usize)
 }
 
 const fn opcode(b1: u8) -> u8 {

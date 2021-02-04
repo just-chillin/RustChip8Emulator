@@ -77,57 +77,57 @@ impl Program {
 
     fn exec(&mut self, instruction: Instruction) {
         match instruction {
-            Instruction::SYS { addr } => self.pc = addr,
+            Instruction::SYS { addr } => self.pc = addr.0,
             Instruction::CLS => todo!(),
             Instruction::RET => self.pc = self.stack.pop().expect("The stack was empty!"),
-            Instruction::JP { addr } => self.pc = addr,
+            Instruction::JP { addr } => self.pc = addr.0,
             Instruction::CALL { addr } => {
                 self.stack.push(self.pc);
-                self.pc = addr
+                self.pc = addr.0 - 2
             }
             Instruction::SEI { vx, imm } => {
-                if self.v[vx] == imm as u8 {
+                if self.v[vx.0] == imm as u8 {
                     self.pc += 2
                 }
             }
             Instruction::SNEI { vx, imm } => {
-                if self.v[vx] != imm as u8 {
+                if self.v[vx.0] != imm as u8 {
                     self.inc_pc()
                 }
             }
             Instruction::SE { vx, vy } => {
-                if self.v[vx] == self.v[vy] {
+                if self.v[vx.0] == self.v[vy.0] {
                     self.inc_pc()
                 }
             }
-            Instruction::LDI { vx, imm } => self.v[vx] = imm,
-            Instruction::ADDI { vx, imm } => self.v[vx] += imm,
-            Instruction::LD { vx, vy } => self.v[vx] = self.v[vy],
-            Instruction::OR { vx, vy } => self.v[vx] |= self.v[vy],
-            Instruction::AND { vx, vy } => self.v[vx] &= self.v[vy],
-            Instruction::XOR { vx, vy } => self.v[vx] ^= self.v[vy],
+            Instruction::LDI { vx, imm } => self.v[vx.0] = imm,
+            Instruction::ADDI { vx, imm } => self.v[vx.0] += imm,
+            Instruction::LD { vx, vy } => self.v[vx.0] = self.v[vy.0],
+            Instruction::OR { vx, vy } => self.v[vx.0] |= self.v[vy.0],
+            Instruction::AND { vx, vy } => self.v[vx.0] &= self.v[vy.0],
+            Instruction::XOR { vx, vy } => self.v[vx.0] ^= self.v[vy.0],
             Instruction::ADD { vx, vy } => {
-                self.v[0xF] = u8::from(((self.v[vx] as u16) + (self.v[vy] as u16)) < 255);
-                self.v[vx] = self.v[vx].wrapping_add(self.v[vy])
+                self.v[0xF] = u8::from(((self.v[vx.0] as u16) + (self.v[vy.0] as u16)) < 255);
+                self.v[vx.0] = self.v[vx.0].wrapping_add(self.v[vy.0])
             }
             Instruction::SUB { vx, vy } => {
-                self.v[0xF] = u8::from(self.v[vx] > self.v[vy]);
-                self.v[vx] = self.v[vx].wrapping_sub(self.v[vy])
+                self.v[0xF] = u8::from(self.v[vx.0] > self.v[vy.0]);
+                self.v[vx.0] = self.v[vx.0].wrapping_sub(self.v[vy.0])
             }
-            Instruction::SHR { vx: _, vy: _ } => todo!(),
+            Instruction::SHR { .. } => todo!(),
             Instruction::SUBN { vx, vy } => {
-                self.v[0xF] = u8::from(self.v[vy] > self.v[vx]);
-                self.v[vx] = self.v[vy].wrapping_sub(self.v[vx])
+                self.v[0xF] = u8::from(self.v[vy.0] > self.v[vx.0]);
+                self.v[vx.0] = self.v[vy.0].wrapping_sub(self.v[vx.0])
             }
             Instruction::SHL { .. } => todo!(),
             Instruction::SNE { vx, vy } => {
-                if self.v[vx] != self.v[vy] {
+                if self.v[vx.0] != self.v[vy.0] {
                     self.pc += 2
                 }
             }
-            Instruction::LDA { addr } => self.i = addr,
-            Instruction::JPO { addr } => self.pc = addr + self.v[0] as usize,
-            Instruction::RND { vx, imm } => self.v[vx] = self.rng.gen::<u8>() & imm,
+            Instruction::LDA { addr } => self.i = addr.0,
+            Instruction::JPO { addr } => self.pc = addr.0 + self.v[0] as usize,
+            Instruction::RND { vx, imm } => self.v[vx.0] = self.rng.gen::<u8>() & imm,
             Instruction::DRW { .. } => todo!(),
             Instruction::SKP { .. } => todo!(),
             Instruction::SKNP { .. } => todo!(),
