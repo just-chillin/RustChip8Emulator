@@ -104,7 +104,7 @@ impl Instruction {
 }
 
 const fn variant(b2: u8) -> u8 {
-    u8::from_be((b2 & 0xF0) << 4)
+    u8::from_be((b2 & 0x0F) << 4)
 }
 const fn vx(b1: u8) -> usize {
     (u8::from_be(b1 & 0x0F) - 1) as usize
@@ -117,7 +117,7 @@ const fn imm(b2: u8) -> u8 {
 }
 
 const fn addr(raw: u16) -> usize {
-    u16::from_be((raw & 0x0fff) << 4) as usize
+    u16::from_be((raw & 0xF)) as usize
 }
 
 const fn opcode(b1: u8) -> u8 {
