@@ -220,10 +220,16 @@ impl Program {
         let sprite = &self.mem.0[sprite_addr..sprite_addr + sprite_size];
         let mask: u8 = 0b1000_0000;
         for (y_offset, byte) in sprite.iter().enumerate() {
-            let y = y + y_offset;
+            let y_cur = y + y_offset;
+            if y_cur >= self.framebuffer.len() {
+                break;
+            }
             for x_offset in 0..8 {
-                let x = x + x_offset;
-                self.framebuffer[x][y] ^= (byte & (mask >> x_offset)) != 0;
+                let x_cur = x + x_offset;
+                if x_cur >= self.framebuffer[y_cur].len() {
+                    break;
+                }
+                self.framebuffer[y_cur][x_cur] ^= (byte & (mask >> x_offset)) != 0;
             }
         }
     }
